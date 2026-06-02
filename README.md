@@ -3,13 +3,13 @@ An electromechanical ukulele that reads sheet music and plays it autonomously. F
 
 ## How it works: 
 
-PDF Sheet Music -> 
-Optical Music Recognition (oemer) -> 
-MusicXML mapped to music21 (Python) -> 
-Note/Chord mapped to String + Fret mapping ->
-Serial commands over USB -> 
-ESP32-S3 Firmware ->
-Stepper Motors (position)  +  Press Servos (fret)  +  Strum Servos (pluck)
+1. PDF Sheet Music -> 
+2. Optical Music Recognition (oemer) -> 
+3. MusicXML mapped to music21 (Python) -> 
+4. Note/Chord mapped to String + Fret mapping ->
+5. Serial commands over USB -> 
+6. ESP32-S3 Firmware ->
+7. Stepper Motors (position)  +  Press Servos (fret)  +  Strum Servos (pluck)
 
 
 
@@ -45,18 +45,26 @@ This means "string 3, fret 7" and "string 4, fret 7" will move different physica
 
 ## Software Components: 
 
-The Arduino firmware: ukulele_riptide.ino 
+#### The Arduino firmware: ukulele_riptide.ino 
 The main firmware runs on the ESP32-S3 and handles all real-time motor control. 
 Key behaviours:
 
-- strumAll() — fires all four strum servos. Uses a global strumState boolean to alternate direction every call, so the servo always moves to the opposite of its current position
-- pressG/C/E/A — each press servo goes to 60°–90° to fret, then returns to 0° after the chord is strummed
-- Chord functions (Aminor(), G(), C()) — move the correct stepper carriages to position, set press angles, then call strummingRhythm()
-- strummingRhythm() — plays the Riptide strumming pattern (down down, down-up-down with timed delays)
-riptide() — sequences the three chords of Riptide (Am → G → C) and loops
+- strumAll(): fires all four strum servos. Uses a global strumState boolean to alternate direction every call, so the servo always moves to the opposite of its current position
+- pressG/C/E/A: each press servo goes to 60°–90° to fret, then returns to 0° after the chord is strummed
+- Chord functions (Aminor(), G(), C()):  move the correct stepper carriages to position, set press angles, then call strummingRhythm()
+- strummingRhythm(): plays the Riptide strumming pattern (down down, down-up-down with timed delays)
+riptide(): sequences the three chords of Riptide (Am → G → C) and loops
+
+#### Serial-Driven Instrument Controller (ukulele_controller.ino)
+The production firmware is used in conjunction with the Python pipeline. Instead of a hardcoded song, it listens for serial commands and executes them in real time, giving the host PC full control over every actuator.
+
+- Fret positioning: a lookup table maps each fret (0–12) to an absolute half-step count using equal-temperament geometry, so fret spacing compresses naturally toward the body. Coils are de-energised after each move to prevent the ULN2003 boards from overheating
+- Strum alternation: each string tracks its own toggle, so consecutive strums always go in opposite directions
+- CAL / DUMP commands: jog a carriage to any position and redefine zero without re-uploading firmware (CAL), or print a full live state table for debugging (DUMP)
+- Boots by homing all carriages and parking all servos, then sends READY — the Python host waits for this before sending any commands
 
 
-Python Pipeline: ukulele_player.py
+#### Python Pipeline: ukulele_player.py
 Sits on the host PC and handles the sheet music side:
 
 1. Opens a PDF and rasterises it to a 300 DPI PNG
@@ -71,7 +79,7 @@ Sits on the host PC and handles the sheet music side:
 
 ## Libraries:
 
-- ESP32Servo: Servo control via LEDC PWM on ESP32-S3 ✅ compatible
+- ESP32Servo: Servo control via LEDC PWM on ESP32-S3
 - Stepper (Arduino built-in): 28BYJ-48 stepper 
 - controlmusic21 (Python): MusicXML parsing and score analysis
 - pymupdf (Python): PDF rasterisation
